@@ -225,19 +225,15 @@ def gather_all_neighbor_ids(neighbor_pickles_dir=OUTPUT_DIR):
     for fname in tqdm(files, desc="Gather neighbor IDs"):
         full_path = os.path.join(neighbor_pickles_dir, fname)
         with open(full_path, "rb") as f:
-            neighbors_df = pickle.load(f)
+            neighbors = pickle.load(f)
         # neighbors_df has columns like:
         #   query_id, neighbor_rank, neighbor_id, distance, ...
         # We want to gather neighbor_id in a set
-        for row in neighbors_df.itertuples():
-            neighbor_ids_set.add(row.neighbor_id)
-            # Also store the mapping from cell->neighbors
-            # row.query_id is the cell name
-            if row.query_id not in cell_to_neighbors:
-                cell_to_neighbors[row.query_id] = []
-            cell_to_neighbors[row.query_id].append(row.neighbor_id)
+        for row in neighbors.neighbor_ids.itertuples():
+            for neighbor_id in row:
+                neighbor_ids_set.add(neighbor_id)
 
-    return neighbor_ids_set, cell_to_neighbors
+    return neighbor_ids_set
 
 
 ##################################################
@@ -246,7 +242,6 @@ def gather_all_neighbor_ids(neighbor_pickles_dir=OUTPUT_DIR):
 
 def fetch_neighbors_metadata_in_batches(
     neighbor_ids_set,
-    cell_to_neighbors,
     census_version=CENSUS_VERSION,
     batch_size=METADATA_BATCH_SIZE,
     out_dir=OUTPUT_DIR
@@ -297,11 +292,6 @@ def fetch_neighbors_metadata_in_batches(
     with open(map_pickle, "wb") as f:
         pickle.dump(neighbor_id_to_filepart, f)
 
-    # Finally, store the entire cell->neighbors mapping in a stable location
-    c2n_pickle = os.path.join(out_dir, "cell_to_neighbors_map.pickle")
-    with open(c2n_pickle, "wb") as f:
-        pickle.dump(cell_to_neighbors, f)
-
 
 ##############################
 # 9. Main orchestrating logic
@@ -322,10 +312,10 @@ def main():
     process_datasets_for_neighbors(h5ad_files)
 
     # 3) After pass 1, gather all neighbor IDs
-    neighbor_ids_set, cell_to_neighbors = gather_all_neighbor_ids()
+    neighbor_ids_set = gather_all_neighbor_ids()
 
     # 4) Pass 2: In batches, fetch neighbor metadata from Census
-    fetch_neighbors_metadata_in_batches(neighbor_ids_set, cell_to_neighbors)
+    fetch_neighbors_metadata_in_batches(neighbor_ids_set)
 
     # Done
     print("All done. Intermediate files are in:", OUTPUT_DIR)
