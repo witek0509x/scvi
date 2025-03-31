@@ -16,7 +16,7 @@ import cellxgene_census.experimental
 # User-defined global settings
 ###############################
 
-DATA_DIR = "/data"            # location of .h5ad files (non-recursive)
+DATA_DIR = "./data"            # location of .h5ad files (non-recursive)
 MODEL_DIR = "./model"         # scVI model directory
 OUTPUT_DIR = "./results"      # where to put results
 CENSUS_VERSION = "2024-07-01" # which cellxgene census to use
