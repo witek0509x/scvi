@@ -229,7 +229,7 @@ def gather_all_neighbor_ids(neighbor_pickles_dir=OUTPUT_DIR):
         # neighbors_df has columns like:
         #   query_id, neighbor_rank, neighbor_id, distance, ...
         # We want to gather neighbor_id in a set
-        for row in neighbors.neighbor_ids.itertuples():
+        for row in neighbors.neighbor_ids:
             for neighbor_id in row:
                 neighbor_ids_set.add(neighbor_id)
 
