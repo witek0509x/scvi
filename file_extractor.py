@@ -166,6 +166,7 @@ def process_datasets_for_neighbors(
     if len(h5ad_files) > MAX_FILES:
         h5ad_files = h5ad_files[:MAX_FILES]
     pbar_datasets = tqdm(h5ad_files, desc="Datasets", position=0)
+    neighbors_cells_done = 0
     for fpath in pbar_datasets:
         pbar_datasets.set_postfix_str(os.path.basename(fpath))
 
@@ -196,7 +197,9 @@ def process_datasets_for_neighbors(
             store_neighbors(neighbors, batch_name)
 
             # Log progress to wandb
-            wandb.log({"neighbors_batches_done": 1})
+            neighbors_cells_done += len(chunk_obs_names)
+            wandb.log({"neighbors_batches_done": neighbors_cells_done})
+
 
             # Optional: Free memory
             del adata_chunk
@@ -258,6 +261,7 @@ def fetch_neighbors_metadata_in_batches(
     print(f"Total unique neighbor IDs = {total_neighbors}")
 
     neighbor_id_to_filepart = {}
+    total_neighbours_downloaded = 0
     with cellxgene_census.open_soma(census_version=census_version) as census:
         pbar = tqdm(range(0, total_neighbors, batch_size), desc="Fetch metadata")
         part_index = 0
@@ -285,7 +289,8 @@ def fetch_neighbors_metadata_in_batches(
             part_index += 1
 
             # log progress to wandb
-            wandb.log({"metadata_downloaded": len(chunk_ids)})
+            total_neighbours_downloaded += len(chunk_ids)
+            wandb.log({"metadata_downloaded": total_neighbours_downloaded})
 
     # Also store the dictionary "neighbor_id -> filepart" so we can find them
     map_pickle = os.path.join(out_dir, "neighbor_id_to_filepart_map.pickle")
