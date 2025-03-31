@@ -171,8 +171,8 @@ def process_datasets_for_neighbors(
 
         # Load & sample data from this file
         adata_sample = sample_data_from_file(fpath, sample_size)
-        with open(f"./results/{fpath.split('/')[-1].replace('.h5ad', '_sample.pickle')}", "wb"):
-            pickle.dump(adata_sample, fpath)
+        with open(f"./results/{fpath.split('/')[-1].replace('.h5ad', '_sample.pickle')}", "wb") as f:
+            pickle.dump(adata_sample, f)
 
         # Break the sample into BATCH_SIZE chunks
         obs_names = adata_sample.obs_names.tolist()
