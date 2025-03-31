@@ -198,7 +198,7 @@ def process_datasets_for_neighbors(
 
             # Log progress to wandb
             neighbors_cells_done += len(chunk_obs_names)
-            wandb.log({"neighbors_batches_done": neighbors_cells_done})
+            wandb.log({"neighbors_cells_done": neighbors_cells_done})
 
 
             # Optional: Free memory
