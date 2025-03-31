@@ -20,9 +20,10 @@ DATA_DIR = "/data"            # location of .h5ad files (non-recursive)
 MODEL_DIR = "./model"         # scVI model directory
 OUTPUT_DIR = "./results"      # where to put results
 CENSUS_VERSION = "2024-07-01" # which cellxgene census to use
-SAMPLE_SIZE_PER_FILE = 100    # how many cells to sample from each .h5ad
+SAMPLE_SIZE_PER_FILE = 20    # how many cells to sample from each .h5ad
 BATCH_SIZE = 10               # how many cells per partial batch
-METADATA_BATCH_SIZE = 5_000   # how many neighbor IDs to fetch at a time
+METADATA_BATCH_SIZE = 1_000   # how many neighbor IDs to fetch at a time
+MAX_FILES = 2
 
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
@@ -124,10 +125,9 @@ def find_neighbors_for_batch(adata_batch, census_version=CENSUS_VERSION):
         organism="mus_musculus",
         census_version=census_version,
         query=adata_batch,
-        k=30,           # or other k
-        memory_GiB=16,  # adjust as needed
+        k=30,
+        memory_GiB=16,
         nprobe=20,
-        n_cells=adata_batch.n_obs  # we only have a small batch anyway
     )
     return neighbors
 
@@ -164,6 +164,8 @@ def process_datasets_for_neighbors(
       - store partial results
     """
     pbar_datasets = tqdm(h5ad_files, desc="Datasets", position=0)
+    if len(pbar_datasets) > MAX_FILES:
+        pbar_datasets = pbar_datasets[:MAX_FILES]
     for fpath in pbar_datasets:
         pbar_datasets.set_postfix_str(os.path.basename(fpath))
 
