@@ -1,0 +1,1 @@
+aws s3 cp --no-sign-request --no-progress --only-show-errors s3://cellxgene-contrib-public/models/scvi/2024-07-01/mus_musculus/model.pt
