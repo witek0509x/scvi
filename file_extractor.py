@@ -163,9 +163,9 @@ def process_datasets_for_neighbors(
       - find neighbors
       - store partial results
     """
+    if len(h5ad_files) > MAX_FILES:
+        h5ad_files = h5ad_files[:MAX_FILES]
     pbar_datasets = tqdm(h5ad_files, desc="Datasets", position=0)
-    if len(pbar_datasets) > MAX_FILES:
-        pbar_datasets = pbar_datasets[:MAX_FILES]
     for fpath in pbar_datasets:
         pbar_datasets.set_postfix_str(os.path.basename(fpath))
 
