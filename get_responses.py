@@ -2,7 +2,8 @@ import os
 import time
 import pickle
 import openai
-
+import dotenv
+dotenv.load_dotenv()
 # Make sure you have `pip install openai`
 # and that your OPENAI_API_KEY is set in the environment, e.g.:
 #   export OPENAI_API_KEY="sk-..."
