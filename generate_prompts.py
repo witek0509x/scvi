@@ -7,7 +7,7 @@ import pandas as pd
 from glob import glob
 from tqdm import tqdm
 
-RESULTS_DIR = "./results"
+RESULTS_DIR = "./results_test"
 PROMPTS_PICKLE_PATH = "./prompts.pickle"
 
 def load_all_samples(results_dir=RESULTS_DIR):
