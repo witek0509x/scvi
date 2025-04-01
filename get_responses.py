@@ -3,6 +3,8 @@ import time
 import pickle
 import openai
 import dotenv
+from openai import OpenAI
+
 dotenv.load_dotenv()
 # Make sure you've installed openai>=1.0.0:
 #   pip install --upgrade openai
@@ -20,6 +22,10 @@ def main():
     openai.api_key = os.getenv("OPENAI_API_KEY")
     if not openai.api_key:
         raise ValueError("Please set OPENAI_API_KEY in your environment.")
+    client = OpenAI(
+        # This is the default and can be omitted
+        api_key=os.environ.get("OPENAI_API_KEY"),
+    )
 
     # 2) Load prompts
     with open(PROMPTS_FILE, "rb") as f:
@@ -32,15 +38,14 @@ def main():
     for i, prompt_text in enumerate(prompts, start=1):
         try:
             # Create a completion. With openai>=1.0.0, use openai.Completion.
-            completion = openai.Completion.create(
+            completion = client.responses.create(
                 model=MODEL_NAME,
-                prompt=prompt_text,
-                max_tokens=200,
-                temperature=0.7
+                instructions="You are scRNA-seq expert that assists in generating textual descriptions of single cells based on their metadata",
+                input=prompt_text,
             )
 
             # The generated text is in completion.choices[0].text
-            response_text = completion.choices[0].text.strip()
+            response_text = completion.output_text.strip()
 
             print(f"[{i}/{len(prompts)}] Response length: {len(response_text)} chars")
 
