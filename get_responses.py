@@ -15,7 +15,7 @@ PROMPTS_FILE = "prompts.pickle"
 RESPONSES_FILE = "responses.pickle"
 
 # Replace this with a valid model name (e.g. "o4-mini", "text-davinci-003", etc.)
-MODEL_NAME = "o4-mini"
+MODEL_NAME = "gpt-o4-mini"
 
 def main():
     # 1) Load the OpenAI key from environment
