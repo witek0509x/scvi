@@ -1,4 +1,5 @@
 import os
+import re
 import pickle
 import anndata
 import numpy as np
@@ -9,60 +10,145 @@ from tqdm import tqdm
 RESULTS_DIR = "./results"
 PROMPTS_PICKLE_PATH = "./prompts.pickle"
 
-def load_samples(results_dir=RESULTS_DIR):
+def load_all_samples(results_dir=RESULTS_DIR):
     """
-    Load all *_sample.pickle files into memory.
-    Returns a dict {sample_filename: AnnData}.
+    Returns a dict:
+      { dataset_prefix_without_dot_h5ad : AnnData }
+    where the dataset_prefix is derived from the file name
+    'XYZ_sample.pickle' -> prefix 'XYZ'.
     """
-    sample_pickles = sorted(glob(os.path.join(results_dir, "*_sample.pickle")))
+    sample_files = sorted(glob(os.path.join(results_dir, "*_sample.pickle")))
     sample_adata_dict = {}
+
+    # Regex to capture <prefix>_sample.pickle
+    # e.g. "8c64b76f-...-a4c69be77325_sample.pickle" -> prefix "8c64b76f-...-a4c69be77325"
+    sample_pat = re.compile(r"^(.*)_sample\.pickle$")
+
     print("Loading sample pickles:")
-    for spkl in sample_pickles:
-        print("  ", os.path.basename(spkl))
-        with open(spkl, "rb") as f:
+    for sf in sample_files:
+        fname = os.path.basename(sf)
+        match = sample_pat.match(fname)
+        if not match:
+            continue
+        prefix = match.group(1)  # e.g. "8c64b76f-...."
+        print("  ", fname, "-> prefix:", prefix)
+        with open(sf, "rb") as f:
             adata_sample = pickle.load(f)
-        sample_adata_dict[os.path.basename(spkl)] = adata_sample
+        sample_adata_dict[prefix] = adata_sample
+
     return sample_adata_dict
 
 def load_neighbors_metadata(results_dir=RESULTS_DIR):
     """
-    Load all neighbors_metadata_part*.h5ad into a single AnnData.
-    We assume they have consistent obs columns.
+    Concatenate all neighbors_metadata_partX.h5ad files into a single AnnData.
     """
     meta_files = sorted(glob(os.path.join(results_dir, "neighbors_metadata_part*.h5ad")))
     if not meta_files:
-        raise ValueError("No neighbors_metadata_part*.h5ad files found.")
-    print("Loading neighbors metadata in parts and concatenating:")
-    all_metas = []
+        raise ValueError("No neighbors_metadata_part*.h5ad files found. Check your directory.")
+    print("Loading neighbors metadata (all parts) and concatenating:")
+    all_parts = []
     for mf in meta_files:
         print("  ", os.path.basename(mf))
-        # read the partial anndata
-        partial = anndata.read_h5ad(mf)
-        all_metas.append(partial)
-    # Concatenate all
-    # This may do an outer join on obs/var. If columns differ, you might want join="outer"
-    neighbors_full_adata = anndata.concat(all_metas, axis=0, join="outer", merge="unique")
+        part_adata = anndata.read_h5ad(mf)
+        all_parts.append(part_adata)
+    neighbors_full_adata = anndata.concat(all_parts, axis=0, join="outer", merge="unique")
     print("Combined neighbor metadata shape:", neighbors_full_adata.shape)
     return neighbors_full_adata
 
-def load_cell_to_neighbors(results_dir=RESULTS_DIR):
+def build_cell_to_neighbors_mapping(sample_adata_dict, results_dir=RESULTS_DIR):
     """
-    Load all neighbors_*.pickle and build a mapping
-    cell_id -> list of neighbor_ids.
+    For each dataset prefix in sample_adata_dict, look for neighbor chunk pickles
+    named neighbors_<prefix>.h5ad_[start]-[stop].pickle
 
-    Return a dictionary: { cell_id: [neighbor_id1, neighbor_id2, ..., neighbor_id30], ... }
+    Then reconstruct a dictionary: cell_id -> neighbor_ids.
+
+    Returns a dict { cell_id : [neighborID1, neighborID2, ... neighborID30], ... }.
     """
-    neighbor_files = sorted(glob(os.path.join(results_dir, "neighbors_*.pickle")))
-    print("Loading neighbor pickles (cell->neighbors mapping):")
+    # The pattern for neighbor chunk files is:
+    # neighbors_<prefix>.h5ad_[start]-[stop].pickle
+    # We'll parse <prefix> plus start/stop, so we know which rows these neighbor IDs correspond to
+    # in that sample's obs_names (which we chunked in the original script).
+
+    # Regex to capture: neighbors_<prefix>.h5ad_<start>-<stop>.pickle
+    neigh_pat = re.compile(r"^neighbors_(.*)\.h5ad_(\d+)-(\d+)\.pickle$")
+
+    # We'll accumulate all neighbor chunk files in a list
+    neighbor_chunk_files = sorted(glob(os.path.join(results_dir, "neighbors_*.pickle")))
+
+    # We'll keep a single global dict { cell_id -> [neighbor_ids...] }
+    # even though each prefix has a separate set of cells
     cell_to_neighbors = {}
-    for nf in tqdm(neighbor_files):
-        with open(nf, "rb") as f:
-            neighbors_df = pickle.load(f)
-        # Build or extend mapping
-        for idx, row in zip(range(len(neighbors_df.neighbor_ids)), neighbors_df.neighbor_ids) :
-            query_id = idx
-            neigh_ids = row
-            cell_to_neighbors[query_id] = neigh_ids
+
+    print("Loading neighbor chunk pickles to build cell->neighbors mapping:")
+    for chunk_file in tqdm(neighbor_chunk_files):
+        fname = os.path.basename(chunk_file)
+        m = neigh_pat.match(fname)
+        if not m:
+            # Possibly skip or keep scanning
+            continue
+        file_prefix_with_h5ad = m.group(1)   # e.g. "8c64b76f-...-a4c69be77325"
+        start_idx = int(m.group(2))
+        end_idx   = int(m.group(3))
+
+        # The original script's prefix was "8c64b76f-...-a4c69be77325" (without ".h5ad").
+        # However, the chunk file has "neighbors_<prefix>.h5ad_..."
+        # So we remove the trailing ".h5ad" from file_prefix_with_h5ad:
+        if file_prefix_with_h5ad.endswith(".h5ad"):
+            dataset_prefix = file_prefix_with_h5ad.replace(".h5ad", "")
+        else:
+            dataset_prefix = file_prefix_with_h5ad
+
+        # Now let's get the sample anndata for that prefix:
+        if dataset_prefix not in sample_adata_dict:
+            # Could happen if there's mismatch in names. We'll skip if not found.
+            continue
+        adata_sample = sample_adata_dict[dataset_prefix]
+        # The chunk of cells that was processed in [start_idx : end_idx]:
+        sample_obs_names = adata_sample.obs_names.tolist()
+        chunk_obs_names = sample_obs_names[start_idx : end_idx]
+        # The number of cells in this chunk:
+        chunk_size = len(chunk_obs_names)
+        if chunk_size == 0:
+            # No cells for that range? skip
+            continue
+
+        # Load neighbor object from the chunk file
+        with open(os.path.join(results_dir, fname), "rb") as f:
+            # Suppose we get a DataFrame or some named structure
+            # that has an attribute or column "neighbor_ids"
+            # which is a 2D numpy array: shape (chunk_size, 30)
+            neighbors_obj = pickle.load(f)
+            # If it's a DataFrame: neighbors_obj["neighbor_ids"]
+            # or if it's an attribute: neighbors_obj.neighbor_ids
+            # We must adapt to your actual object structure.
+
+            # For demonstration, let's assume 'neighbors_obj' is a DataFrame
+            # and the array is in neighbors_obj["neighbor_ids"].
+            # If you have something else, adapt accordingly.
+            if isinstance(neighbors_obj, pd.DataFrame):
+                # Possibly neighbors_obj['neighbor_ids'] is a 2D array
+                neighbor_ids_array = neighbors_obj["neighbor_ids"].values
+            else:
+                # Another possible structure:
+                # neighbors_obj might be a dict with key "neighbor_ids",
+                # or a custom class with .neighbor_ids
+                # For example:
+                neighbor_ids_array = neighbors_obj.neighbor_ids  # adapt as needed
+
+        if neighbor_ids_array.shape[0] != chunk_size:
+            # This might be an error if they do not match
+            raise ValueError(
+                f"Mismatch between chunk size {chunk_size} and neighbors array shape {neighbor_ids_array.shape}"
+            )
+
+        # Each row i in neighbor_ids_array corresponds to chunk_obs_names[i]
+        # neighbor_ids_array[i] => array of 30 neighbor IDs for that cell
+        for i in range(chunk_size):
+            cell_id = chunk_obs_names[i]
+            cell_neighbors = neighbor_ids_array[i]
+            # store in global dict
+            cell_to_neighbors[cell_id] = cell_neighbors
+
     return cell_to_neighbors
 
 def build_prompts(
@@ -71,80 +157,67 @@ def build_prompts(
     cell_to_neighbors
 ):
     """
-    For each cell in each sample, retrieve the 30 neighbors, build the prompt:
-    \"\"\"
-    Having following cell:
-    [cell metadata]
-    and 30 similar cells:
-    [neighbors metadata]
-    generate 5 sentence textual description of this cell
-    \"\"\"
-    Return a list of prompt strings.
+    For each cell in each sample, we retrieve that cell's 30 neighbors, then
+    build the final prompt.
+
+    returns a list of strings (the prompts).
     """
-    prompts = []
+    # We'll just gather the obs DataFrame for neighbors_full_adata
+    neighbor_obs_df = neighbors_full_adata.obs
 
-    # Convert neighbors_full_adata.obs to DataFrame for easy indexing
-    # This allows neighbors_full_adata.obs.loc[id] to fetch the row if id is in .obs_names
-    neighbor_meta_df = neighbors_full_adata.obs
+    all_prompts = []
 
-    # For each sample:
-    for sample_name, adata in sample_adata_dict.items():
-        print(f"Building prompts for sample: {sample_name}, shape={adata.shape}")
-        sample_df = adata.obs  # metadata for this sample's cells
+    # For each dataset prefix:
+    for prefix, adata_sample in sample_adata_dict.items():
+        print(f"Building prompts for prefix={prefix}, sample shape={adata_sample.shape}")
+        sample_obs_df = adata_sample.obs
 
-        # For each cell in the sample
-        for cell_id in tqdm(sample_df.index, desc=f"Cells in {sample_name}"):
-            print(f" {cell_id} ")
-            break
-            # 1) gather the cell's metadata
-            #    Convert to a small JSON-like string or a text summary
-            cell_metadata_str = sample_df.loc[cell_id].to_dict()
-
-            # 2) find the neighbors
+        # For each cell in the sample:
+        for cell_id in tqdm(sample_obs_df.index, desc=f"Cells in {prefix}"):
+            # If no neighbor data for this cell, skip
             if cell_id not in cell_to_neighbors:
-                # Some chunk might not have found neighbors, skip or continue
                 continue
+            # 1) Cell's own metadata
+            cell_meta_str = sample_obs_df.loc[cell_id].to_dict()
 
+            # 2) Get neighbors
             neighbor_ids = cell_to_neighbors[cell_id]
+            # neighbor_ids should be length ~30
+            # fetch their metadata from neighbors_full_adata.obs
+            # some IDs may not exist in neighbor_obs_df; we can filter them:
+            valid_neighbor_ids = [nid for nid in neighbor_ids if nid in neighbor_obs_df.index]
+            neighbors_dict = neighbor_obs_df.loc[valid_neighbor_ids].to_dict(orient="index")
 
-            # 3) gather neighbor metadata
-            #    If any neighbor IDs are missing from neighbors_full_adata, you can skip them
-            #    but we expect them to all be in .obs_names
-            neighbor_rows = neighbor_meta_df.loc[neighbor_ids, :].to_dict(orient="index")
-
-            # Turn neighbor_rows into a nicely formatted string or partial data
-            # We'll just do str(neighbor_rows) for demonstration. You can customize.
-            neighbor_metadata_str = str(neighbor_rows)
-
-            # 4) Build the prompt
-            prompt_text = f"""Having following cell:
-{cell_metadata_str}
+            # Build your text prompt:
+            prompt = f"""Having following cell:
+{cell_meta_str}
 and 30 similar cells:
-{neighbor_metadata_str}
+{neighbors_dict}
 generate 5 sentence textual description of this cell
 """
-            prompts.append(prompt_text)
+            all_prompts.append(prompt)
 
-    return prompts
+    return all_prompts
 
 def main():
-    print("1) Loading all samples...")
-    sample_adata_dict = load_samples()
+    print("1) Loading all sample pickles...")
+    sample_adata_dict = load_all_samples()
 
-    print("\n2) Loading all neighbors metadata...")
+    print("\n2) Loading full neighbors metadata (concatenate all parts)...")
     neighbors_full_adata = load_neighbors_metadata()
 
-    print("\n3) Loading all neighbor <-> cell mappings...")
-    cell_to_neighbors = load_cell_to_neighbors()
+    print("\n3) Building cell->neighbors mapping from chunked neighbor pickles...")
+    cell_to_neighbors = build_cell_to_neighbors_mapping(sample_adata_dict)
 
-    print("\n4) Building prompts for each cell in each sample...")
+    print("\n4) Constructing prompts for each cell in each sample...")
     prompts = build_prompts(sample_adata_dict, neighbors_full_adata, cell_to_neighbors)
+    print(f"   Built {len(prompts)} total prompts.")
 
-    print("\n5) Saving prompts to pickle...")
+    print("\n5) Saving prompts to:", PROMPTS_PICKLE_PATH)
     with open(PROMPTS_PICKLE_PATH, "wb") as f:
         pickle.dump(prompts, f)
 
-    print(f"All done. Saved {len(prompts)} prompts to {PROMPTS_PICKLE_PATH}")
+    print("All done.")
 
 if __name__ == "__main__":
     main()
