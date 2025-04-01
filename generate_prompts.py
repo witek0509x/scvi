@@ -60,9 +60,9 @@ def load_cell_to_neighbors(results_dir=RESULTS_DIR):
             # Expect a DataFrame with columns: ["query_id", "neighbor_ids", ...]
             neighbors_df = pickle.load(f)
         # Build or extend mapping
-        for idx, row in neighbors_df.iterrows():
-            query_id = row["query_id"]
-            neigh_ids = row["neighbor_ids"]  # typically a list of neighbor IDs
+        for idx, row in zip(range(len(neighbors_df.neighbour_ids)), neighbors_df.neighbour_ids) :
+            query_id = idx
+            neigh_ids = row
             cell_to_neighbors[query_id] = neigh_ids
     return cell_to_neighbors
 
