@@ -57,7 +57,6 @@ def load_cell_to_neighbors(results_dir=RESULTS_DIR):
     cell_to_neighbors = {}
     for nf in tqdm(neighbor_files):
         with open(nf, "rb") as f:
-            # Expect a DataFrame with columns: ["query_id", "neighbor_ids", ...]
             neighbors_df = pickle.load(f)
         # Build or extend mapping
         for idx, row in zip(range(len(neighbors_df.neighbor_ids)), neighbors_df.neighbor_ids) :
@@ -95,6 +94,8 @@ def build_prompts(
 
         # For each cell in the sample
         for cell_id in tqdm(sample_df.index, desc=f"Cells in {sample_name}"):
+            print(f" {cell_id} ")
+            break
             # 1) gather the cell's metadata
             #    Convert to a small JSON-like string or a text summary
             cell_metadata_str = sample_df.loc[cell_id].to_dict()
