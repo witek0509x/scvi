@@ -4,45 +4,47 @@ import pickle
 import openai
 import dotenv
 dotenv.load_dotenv()
-# Make sure you have `pip install openai`
-# and that your OPENAI_API_KEY is set in the environment, e.g.:
+# Make sure you've installed openai>=1.0.0:
+#   pip install --upgrade openai
+# Also ensure you have the environment variable set:
 #   export OPENAI_API_KEY="sk-..."
 
 PROMPTS_FILE = "prompts.pickle"
 RESPONSES_FILE = "responses.pickle"
-MODEL_NAME = "o4-mini"  # or another model, if needed
+
+# Replace this with a valid model name (e.g. "o4-mini", "text-davinci-003", etc.)
+MODEL_NAME = "o4-mini"
 
 def main():
-    # 1) Load OpenAI key from env
+    # 1) Load the OpenAI key from environment
     openai.api_key = os.getenv("OPENAI_API_KEY")
     if not openai.api_key:
         raise ValueError("Please set OPENAI_API_KEY in your environment.")
 
     # 2) Load prompts
     with open(PROMPTS_FILE, "rb") as f:
-        prompts = pickle.load(f)
+        prompts = pickle.load(f)[:5]
     print(f"Loaded {len(prompts)} prompts from {PROMPTS_FILE}")
 
-    # 3) Generate responses
+    # 3) Generate responses using the Completion endpoint
     responses = []
-    print("Generating responses...")
+    print("\nGenerating responses...")
     for i, prompt_text in enumerate(prompts, start=1):
         try:
-            # Send the prompt to OpenAI
-            completion = openai.ChatCompletion.create(
+            # Create a completion. With openai>=1.0.0, use openai.Completion.
+            completion = openai.Completion.create(
                 model=MODEL_NAME,
-                messages=[
-                    {"role": "system", "content": "You are a helpful assistant."},
-                    {"role": "user", "content": prompt_text}
-                ],
-                temperature=0.7,
-                max_tokens=200
+                prompt=prompt_text,
+                max_tokens=200,
+                temperature=0.7
             )
 
-            response_text = completion.choices[0].message["content"]
+            # The generated text is in completion.choices[0].text
+            response_text = completion.choices[0].text.strip()
+
             print(f"[{i}/{len(prompts)}] Response length: {len(response_text)} chars")
 
-            # Collect the result
+            # Collect results (store original prompt plus the response)
             responses.append({
                 "prompt": prompt_text,
                 "response": response_text
@@ -56,15 +58,14 @@ def main():
                 "error": str(e)
             })
 
-        # OPTIONAL: Avoid hitting rate limits if you have many prompts
-        time.sleep(0.5)
+        # Optional: Sleep to avoid hitting rate limits if you have many prompts
+        time.sleep(0.2)
 
-    # 4) Save all responses
+    # 4) Save the responses to a file
     with open(RESPONSES_FILE, "wb") as f:
         pickle.dump(responses, f)
 
-    print(f"Done. Saved {len(responses)} responses to {RESPONSES_FILE}")
-
+    print(f"\nDone. Saved {len(responses)} responses to {RESPONSES_FILE}.")
 
 if __name__ == "__main__":
     main()
