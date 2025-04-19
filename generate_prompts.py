@@ -189,7 +189,8 @@ def build_prompts(
             neighbors_dict = neighbor_obs_df.loc[valid_neighbor_ids].to_dict(orient="index")
 
             # Build your text prompt:
-            prompt = f"""You have metadata about a single cell and a set of similar cells.
+            prompt = f"""
+You have metadata about a single cell and a set of similar cells.
 Your task is to produce a concise, descriptive summary that:
 
 1. Identifies the cell type, tissue of origin, assay used, and at least one 

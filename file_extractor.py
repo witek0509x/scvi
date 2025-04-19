@@ -141,6 +141,7 @@ def store_neighbors(neighbors, batch_name, out_dir=OUTPUT_DIR):
     Store the neighbor result in a pickle so we can retrieve later.
     """
     out_pickle = os.path.join(out_dir, f"neighbors_{batch_name}.pickle")
+    print(f"storing {out_pickle}")
     with open(out_pickle, "wb") as f:
         pickle.dump(neighbors, f)
 
