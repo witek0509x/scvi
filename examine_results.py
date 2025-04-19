@@ -10,7 +10,7 @@ import numpy as np
 import pandas as pd
 
 # Set the directory where the results are stored
-RESULTS_DIR = "./results"
+RESULTS_DIR = "./results_full"
 
 def print_separator(title):
     """Print a separator with a title."""
@@ -79,7 +79,7 @@ def load_and_examine_h5ad(filepath, n_samples=5):
         
         print(f"AnnData object: {adata.shape[0]} cells × {adata.shape[1]} genes")
         
-        print("\nObservation names (first {n_samples}):")
+        print(f"\nObservation names (first {n_samples}):")
         print(adata.obs_names[:n_samples].tolist())
         
         print("\nAvailable observation metadata:")
