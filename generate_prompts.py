@@ -164,6 +164,7 @@ def build_prompts(
     """
     # We'll just gather the obs DataFrame for neighbors_full_adata
     neighbor_obs_df = neighbors_full_adata.obs
+    neighbor_obs_df.set_index("soma_joinid", inplace=True)
 
     all_prompts = []
 
@@ -171,6 +172,7 @@ def build_prompts(
     for prefix, adata_sample in sample_adata_dict.items():
         print(f"Building prompts for prefix={prefix}, sample shape={adata_sample.shape}")
         sample_obs_df = adata_sample.obs
+
 
         # For each cell in the sample:
         for cell_id in tqdm(sample_obs_df.index, desc=f"Cells in {prefix}"):
@@ -187,6 +189,8 @@ def build_prompts(
             # some IDs may not exist in neighbor_obs_df; we can filter them:
             valid_neighbor_ids = [nid for nid in neighbor_ids if nid in neighbor_obs_df.index]
             neighbors_dict = neighbor_obs_df.loc[valid_neighbor_ids].to_dict(orient="index")
+            if len(valid_neighbor_ids) == 0:
+                print(f"No neighbors for cell {cell_id}, {neighbor_ids}")
 
             # Build your text prompt:
             prompt = f"""
