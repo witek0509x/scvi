@@ -3,5 +3,5 @@ from pprint import pprint
 
 with open("./prompts.pickle", "rb") as f:
     prompts = pickle.load(f)
-pprint(''.join(list(prompts[0])))
+print(''.join(list(prompts[0])))
 
