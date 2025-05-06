@@ -29,7 +29,7 @@ def main():
 
     # 2) Load prompts
     with open(PROMPTS_FILE, "rb") as f:
-        prompts = pickle.load(f)[:5]
+        prompts = pickle.load(f)
     print(f"Loaded {len(prompts)} prompts from {PROMPTS_FILE}")
 
     # 3) Generate responses using the Completion endpoint
