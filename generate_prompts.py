@@ -197,11 +197,10 @@ def build_prompts(
 You have metadata about a single cell and a set of similar cells.
 Your task is to produce a concise, descriptive summary that:
 
-1. Identifies the cell type, tissue of origin, assay used, and at least one 
-   numerical detail (e.g., total transcript count).
+1. Identifies the cell type, tissue of origin, assay used and any significant permutation that was applied to the organism
 2. Compares this cell to at least one similar cell in terms of expression 
    or biological characteristics, noting any meaningful distinctions 
-   (such as different assays, stages, or tissues).
+   (such as different assays, stages, or tissues) and explains possible reason for the differences and similarities.
 3. Concludes with the likely role or function of the cell based on the 
    provided data (e.g., regenerative capacity, specialized function, etc.).
 
@@ -216,9 +215,6 @@ Your task is to produce a concise, descriptive summary that:
 - Mention the **key similarities** or **differences** between the target cell and similar cells (e.g., different assay methods or expression levels).
 - Vary your word choice if possible (use synonyms or alternate phrasing), while staying factually correct.
 - Do **not** add information that isn’t supported by the data.
-
-### Example Output (Hypothetical)
-“A highly proliferative transit amplifying cell from the adult mouse colon, documented via a spatial gene expression assay. It exhibits around 40,000 transcripts detected—showing more robust activity than similar epithelial cells measured by sci-RNA-seq, which display fewer detected genes. This observation suggests its critical role in renewing the gut lining.”
 
 Now, use the information provided above to create a similarly concise yet descriptive passage.
 """
