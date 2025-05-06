@@ -12,8 +12,8 @@ dotenv.load_dotenv()
 # Also ensure you have the environment variable set:
 #   export OPENAI_API_KEY="sk-..."
 
-PROMPTS_FILE = "prompts.pickle"
-RESPONSES_FILE = "responses.pickle"
+PROMPTS_FILE = "prompts_raw.pickle"
+RESPONSES_FILE = "responses_raw.pickle"
 
 # Replace this with a valid model name (e.g. "o4-mini", "text-davinci-003", etc.)
 MODEL_NAME = "gpt-4o-mini-2024-07-18"
