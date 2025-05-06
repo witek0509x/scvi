@@ -36,7 +36,7 @@ def main():
     # 3) Generate responses using the Completion endpoint
     responses = []
     print("\nGenerating responses...")
-    for i, prompt_text in tqdm(enumerate(prompts, start=1), total=len(prompts), desc="Generating responses"):
+    for i, prompt_text in tqdm(enumerate(prompts[::10], start=1), total=len(prompts[::10]), desc="Generating responses"):
         try:
             # Create a completion. With openai>=1.0.0, use openai.Completion.
             completion = client.responses.create(
